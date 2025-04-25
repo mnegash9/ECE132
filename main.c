@@ -30,7 +30,7 @@
 
 //function declarations
 void setup_adc_potentiometer();
-
+void setup_watchdog();
 //variable declarations
 float selection;
 unsigned int INPUT;
@@ -70,4 +70,36 @@ void setup_adc_potentiometer()
 
     ADCSequenceEnable(ADC0_BASE, 0); // Enable ADC0 with sample sequence number 0
 }
+void setup_watchdog()
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_WDOG0);
+    while (!SysCtlPeripheralReady(SYSCTL_PERIPH_WDOG0))
+    {
+    }
+    IntEnable(INT_WATCHDOG);
+    if (WatchdogLockState(WATCHDOG0_BASE) == true)
+    {
+        WatchdogUnlock(WATCHDOG0_BASE);
+    }
+    WatchdogIntEnable(WATCHDOG0_BASE);
+    WatchdogIntTypeSet(WATCHDOG0_BASE, WATCHDOG_INT_TYPE_INT);
+    //every 1 sec if directly from crystal
+    WatchdogReloadSet(WATCHDOG0_BASE, SysCtlClockGet() / 3);
+//    WatchdogResetEnable(WATCHDOG0_BASE);
+    WatchdogLock(WATCHDOG0_BASE);
+    WatchdogEnable(WATCHDOG0_BASE);
+
+}
+void WatchdogIntHandler(void)
+{
+    // Clear the watchdog interrupt.
+    if (g_bWatchdogFeed)
+    {
+        WatchdogIntClear(WATCHDOG0_BASE);
+    }
+}
+void feed_watchdog(){
+    g_bWatchdogFeed = 0;
+}
+
 
