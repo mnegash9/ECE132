@@ -15,6 +15,7 @@
 //libraries
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 #include "inc/tm4c123gh6pm.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -27,7 +28,46 @@
 #include "driverlib/uart.h"
 #include "driverlib/adc.h"
 
-int main(void)
-{
+//function declarations
+void setup_adc_potentiometer();
+
+//variable declarations
+float selection;
+unsigned int INPUT;
+
+int main(void){
+    SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
+
+    setup_adc_potentiometer();
+    while (1){
+        // read in ADC:
+        ADCProcessorTrigger(ADC0_BASE, 0); //Trigger the ADC conversion for sequence 0
+        ADCSequenceDataGet(ADC0_BASE, 0, &INPUT); //Retrieve the ADC conversion result from sequence 0 and store it in INPUT
+
+        // step 1 - selection ranges from 0 to 2 depending on ADC Input
+        selection = round((INPUT * 3.3f) / 4.095f / 1650.0f);
+    }
     
 }
+
+void setup_adc_potentiometer()
+{
+    // Peripheral setup for ADC0
+    // This will read the value off Port E Pin 3
+    // The resolution of the measurement is .805 mV ( With a 12-bit ADC (4096 levels), each count represents about 0.805 mV)
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+
+    ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_PROCESSOR, 0); // The ADC0 is configured
+    // The ADC will support up to 8 samples to be taken
+    // The ADC will be triggered to get a sample based on the processor trigger condition
+    // The ADC will have a priority that is the highest compared to other samplings
+
+    ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
+    ADC_CTL_IE | ADC_CTL_END | ADC_CTL_CH0);
+    // For step 0 the step configuration is being setup
+    // The step configuration is for Channel 0 to be read and this to be the sample that is the last sample in the sequence read
+    // It is configured that the ADC interrupt is allowed to happen
+
+    ADCSequenceEnable(ADC0_BASE, 0); // Enable ADC0 with sample sequence number 0
+}
+
