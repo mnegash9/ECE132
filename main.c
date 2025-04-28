@@ -31,13 +31,22 @@
 //function declarations
 void setup_adc_potentiometer();
 void setup_watchdog();
+void pwm_setup(void);
+
 //variable declarations
 float selection;
 unsigned int INPUT;
+//global variables for PWM
+float duty_cycle = .02;
+int divider;
+int ulPeriod;
 
 int main(void){
     SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
-
+    
+    //PWM SETUP
+    pwm_setup();
+    
     setup_adc_potentiometer();
     while (1){
         // read in ADC:
@@ -70,6 +79,7 @@ void setup_adc_potentiometer()
 
     ADCSequenceEnable(ADC0_BASE, 0); // Enable ADC0 with sample sequence number 0
 }
+
 void setup_watchdog()
 {
     SysCtlPeripheralEnable(SYSCTL_PERIPH_WDOG0);
@@ -102,4 +112,55 @@ void feed_watchdog(){
     g_bWatchdogFeed = 0;
 }
 
+void pwm_setup(void)
+{
+    // Set the clock
+    // This Function is on page 493 in the reference manual
+    SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); //for 80 MHz
+
+    // Configure PWM Clock to match system
+    SysCtlPWMClockSet(SYSCTL_PWMDIV_32);
+
+    // Enable the peripherals used by this program.
+    // This SysCtlPeripheralEnable function is on page 509 in the reference manual
+    // Function call to enable Port F
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+    // Function call to enable the appropriate PWM Module
+    // The Tiva Launchpad has two modules (0 and 1). Module 1 covers the LED pins
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM1);
+
+    // Need to set the divider to something to get the desired period
+    // For 15khz frequency, divider should be 15000, which gives us a period of 5333 clock ticks for a 80Mhz clock speed
+    divider=1600;
+    ulPeriod = 80000000 /divider;
+
+    // Configure PF2 Pins as PWM
+    // Information about GPIOPinConfigure is on page 268
+    GPIOPinConfigure(GPIO_PF2_M1PWM6);
+
+    // GPIOPinTypePWM performs the task:
+    // Information on this function is on page 279
+    // Pins F2 are set up as PWM
+    GPIOPinTypePWM(GPIO_PORTF_BASE, GPIO_PIN_2 );
+
+
+    // Configure PWM Options
+    // PWM_GEN_3 Covers M1PWM6 and M1PWM7
+    PWMGenConfigure(PWM1_BASE, PWM_GEN_3, PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
+
+    // Set the Period (expressed in clock ticks)
+    // Use the PWMGenPeriodSet function
+    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_3, ulPeriod);
+
+
+    // Use the PWMPulseWidthSet function to set the duty cycle for the signal
+    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_6, (ulPeriod * duty_cycle) - 2); //subtract 2 ticks from width to prevent LED from turning off at 100% duty cycle
+
+    // Enable the PWM generator
+    // PWMGenEnable information is found on page 427
+    PWMGenEnable(PWM1_BASE, PWM_GEN_3);
+
+    // Turn on the Output pins
+    PWMOutputState(PWM1_BASE, PWM_OUT_6_BIT, true);
+}
 
