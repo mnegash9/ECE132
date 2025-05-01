@@ -46,6 +46,29 @@ float duty_cycle = .02;
 int divider;
 int ulPeriod;
 volatile bool g_bWatchdogFeed = 1;
+//global variables for LED FSM
+const int T = 1000;
+int input;
+int currentState = 0;
+
+//FSM for LEDs
+struct state
+{
+    unsigned char out[2]; //two outputs
+    unsigned long wait; //delay
+    unsigned char next[4]; //four input options {0, 1, 2, 3}
+};
+//typedef
+typedef struct state stype;
+//variable declaration and initialization of FSM
+stype fsm[11] = {
+    {{0,0}, T, {0, 1, 2, 3}},  //None (0)
+    {{1,0}, T, {0, 1, 2, 3}},  //L1 (1)
+    {{0,1}, T, {0, 1, 2, 3}},  //L2 (2)
+    {{1,1}, T, {0, 1, 2, 3}},  //Both (3)
+
+};
+
 
 int main(void){
     SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
