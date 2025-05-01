@@ -39,7 +39,7 @@ void portB_output_setup(int pin);
 void handler_portB(void);
 
 //variable declarations
-float selection;
+int selection;
 unsigned int INPUT;
 //global variables for PWM
 float duty_cycle = .02;
