@@ -45,6 +45,7 @@ unsigned int INPUT;
 float duty_cycle = .02;
 int divider;
 int ulPeriod;
+volatile bool g_bWatchdogFeed = 1;
 
 int main(void){
     SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
