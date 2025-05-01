@@ -97,6 +97,9 @@ int main(void){
     pwm_setup();
     
     setup_adc_potentiometer();
+    setup_uart();
+    char message[] = "Position: ";
+    mess_len = sizeof(message) / sizeof(message[0]);
     while (1){
         // read in ADC:
         ADCProcessorTrigger(ADC0_BASE, 0); //Trigger the ADC conversion for sequence 0
@@ -104,6 +107,13 @@ int main(void){
 
         // step 1 - selection ranges from 0 to 2 depending on ADC Input
         selection = round((INPUT * 3.3f) / 4.095f / 1650.0f);
+        // Step 2 - output to UART
+        for (i = 0; i < mess_len; i++)
+        {
+            UARTCharPut(UART0_BASE, message[i]);
+        }
+        UARTCharPut(UART0_BASE, selection + '0');
+        UARTCharPut(UART0_BASE, '\r');
     }
     
 }
@@ -160,7 +170,19 @@ void WatchdogIntHandler(void)
 void feed_watchdog(){
     g_bWatchdogFeed = 0;
 }
-
+void setup_uart()
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);         // Enable UART hardware
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);          // Enable Pin hardware
+    GPIOPinConfigure(GPIO_PA0_U0RX);      // Configure GPIO pin for UART RX line
+    GPIOPinConfigure(GPIO_PA1_U0TX);      // Configure GPIO Pin for UART TX line
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1); // Set Pins for UART
+    UARTConfigSetExpClk(
+    UART0_BASE,
+                        SysCtlClockGet(),
+                        115200, // Configure UART to 8N1 at 115200bps
+            (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+}
 void pwm_setup(void)
 {
     // Set the clock
@@ -211,6 +233,8 @@ void pwm_setup(void)
 
     // Turn on the Output pins
     PWMOutputState(PWM1_BASE, PWM_OUT_6_BIT, true);
+
+    SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
 }
 
 //Port B Input Setup Function
