@@ -27,6 +27,8 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/uart.h"
 #include "driverlib/adc.h"
+#include "driverlib/pwm.h"
+#include "driverlib/watchdog.h"
 
 //function declarations
 void setup_adc_potentiometer();
