@@ -33,6 +33,7 @@
 //function declarations
 void setup_adc_potentiometer();
 void setup_watchdog();
+void setup_uart();
 void pwm_setup(void);
 void portB_input_setup(int input_pin);
 void portB_output_setup(int pin);
@@ -41,6 +42,8 @@ void handler_portB(void);
 //variable declarations
 int selection;
 unsigned int INPUT;
+int mess_len;
+int i;
 //global variables for PWM
 float duty_cycle = .02;
 int divider;
@@ -73,7 +76,7 @@ stype fsm[11] = {
 int main(void){
     SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
 
-    
+
     //sensor 1 setup (PB4)
     portB_input_setup(0x10);
 
@@ -83,7 +86,7 @@ int main(void){
     //LED 2 Setup (PB1)
     portB_output_setup(0x02);
     GPIO_PORTB_DATA_R |= 0x02; //initialize second LED on
-    
+
     //INTERRUPTS PORT B SETUP
     //triggering behavior of GPIO pin B4 interrupt
     GPIOIntTypeSet(GPIO_PORTB_BASE, GPIO_PIN_4, GPIO_FALLING_EDGE);
@@ -92,10 +95,10 @@ int main(void){
     //Enabling interrupt of GPIO pin B4
     GPIOIntEnable(GPIO_PORTB_BASE, GPIO_INT_PIN_4);
 
-    
+
     //PWM SETUP
     pwm_setup();
-    
+
     setup_adc_potentiometer();
     setup_uart();
     char message[] = "Position: ";
@@ -115,7 +118,7 @@ int main(void){
         UARTCharPut(UART0_BASE, selection + '0');
         UARTCharPut(UART0_BASE, '\r');
     }
-    
+
 }
 
 void setup_adc_potentiometer()
