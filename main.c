@@ -32,6 +32,9 @@
 void setup_adc_potentiometer();
 void setup_watchdog();
 void pwm_setup(void);
+void portB_input_setup(int input_pin);
+void portB_output_setup(int pin);
+void handler_portB(void);
 
 //variable declarations
 float selection;
@@ -43,6 +46,26 @@ int ulPeriod;
 
 int main(void){
     SysCtlClockSet( SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ); // Set up Clock
+
+    
+    //sensor 1 setup (PB4)
+    portB_input_setup(0x10);
+
+    //LED 1 Setup (PB0)
+    portB_output_setup(0x01);
+    GPIO_PORTB_DATA_R |= 0x01; //initialize first LED on
+    //LED 2 Setup (PB1)
+    portB_output_setup(0x02);
+    GPIO_PORTB_DATA_R |= 0x02; //initialize second LED on
+    
+    //INTERRUPTS PORT B SETUP
+    //triggering behavior of GPIO pin B4 interrupt
+    GPIOIntTypeSet(GPIO_PORTB_BASE, GPIO_PIN_4, GPIO_FALLING_EDGE);
+    //Registering function as interrupt handler
+    GPIOIntRegister(GPIO_PORTB_BASE, handler_portB);
+    //Enabling interrupt of GPIO pin B4
+    GPIOIntEnable(GPIO_PORTB_BASE, GPIO_INT_PIN_4);
+
     
     //PWM SETUP
     pwm_setup();
@@ -164,3 +187,61 @@ void pwm_setup(void)
     PWMOutputState(PWM1_BASE, PWM_OUT_6_BIT, true);
 }
 
+//Port B Input Setup Function
+void portB_input_setup(int input_pin)
+{
+    // Enable clock for GPIO Port B
+    // The value is 0x02, b00000010
+    SYSCTL_RCGCGPIO_R |= 0x02;
+
+    // Setting the pin of Port B to an Input
+    GPIO_PORTB_DIR_R &= ~(input_pin);
+
+    // Enable digital function for the pin
+    GPIO_PORTB_DEN_R |= input_pin;
+
+    // Enable Pull Up Resistor for the pin
+    GPIO_PORTB_PUR_R |= input_pin;
+
+}
+
+//portB_output_setup
+//void function
+//parameters: pin number in hex
+void portB_output_setup(int pin)
+{
+    // Enable clock for GPIO Port F
+    // The value is 0x20, b00000010
+    SYSCTL_RCGCGPIO_R |= 0x02;
+
+    // Setting the pin of Port B to an Output
+    GPIO_PORTB_DIR_R |= pin;
+
+    // Enable digital function for the pin
+    GPIO_PORTB_DEN_R |= pin;
+}
+
+//interrupt handler port B
+void handler_portB(void)
+{
+    //Turn off interrupts while performing function
+    IntMasterDisable();
+
+    //capture which GPIO pin was triggered
+    uint32_t status = GPIOIntStatus(GPIO_PORTB_BASE, true);
+
+    // Check if PB4 triggered the interrupt
+    if (status & GPIO_PIN_4)
+    {
+
+    }
+
+    //Delay for Debounce of Sensors
+    SysCtlDelay(1000000);
+
+    //Clear the interrupt flag
+    GPIOIntClear(GPIO_PORTB_BASE, GPIO_PIN_4);
+
+    //Turn interrupts back on
+    IntMasterEnable();
+}
