@@ -45,6 +45,8 @@ void handler_portB(void);
 void portF_input_setup(int input_pin);
 void handler_portF(void);
 void motor_move(void);
+void led_update(bool ir, bool motor);
+void feed_watchdog();
 
 //global variables for ADC
 int selection;
@@ -59,7 +61,7 @@ int ulPeriod;
 //global variable for watchdog
 volatile bool g_bWatchdogFeed = 1;
 //global variables for LED FSM
-const int T = 1000;
+const int T = 10;
 int input;
 int currentState = 0;
 //global variables for IR Sensor
@@ -75,7 +77,7 @@ struct state
 //typedef
 typedef struct state stype;
 //variable declaration and initialization of FSM
-stype fsm[11] = {
+stype fsm[4] = {
     {{0,0}, T, {0, 1, 2, 3}},  //None (0)
     {{1,0}, T, {0, 1, 2, 3}},  //L1 (1)
     {{0,1}, T, {0, 1, 2, 3}},  //L2 (2)
@@ -96,10 +98,10 @@ int main(void){
 
     //LED 1 Setup (PB0)
     portB_output_setup(0x01);
-    GPIO_PORTB_DATA_R |= 0x01; //initialize first LED on
+    GPIO_PORTB_DATA_R &= ~(0x01); //initialize first LED off
     //LED 2 Setup (PB1)
     portB_output_setup(0x02);
-    GPIO_PORTB_DATA_R |= 0x02; //initialize second LED on
+    GPIO_PORTB_DATA_R &= ~(0x02); //initialize second LED off
 
     //INTERRUPTS PORT B SETUP
     //triggering behavior of GPIO pin B4 interrupt
@@ -154,6 +156,18 @@ int main(void){
         }
         UARTCharPut(UART0_BASE, selection + '0');
         UARTCharPut(UART0_BASE, '\r');
+
+        //update LED states
+        led_update(ir_triggered, false);
+        if (GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_4))
+        {
+            ir_triggered = false;  // sensor cleared
+        }
+        //feed watchdog
+        feed_watchdog();
+
+        SysCtlDelay(10);
+
     }
 
 }
@@ -205,8 +219,9 @@ void WatchdogIntHandler(void)
         WatchdogIntClear(WATCHDOG0_BASE);
     }
 }
-void feed_watchdog(){
-    g_bWatchdogFeed = 0;
+void feed_watchdog()
+{
+    g_bWatchdogFeed = 1;
 }
 
 void setup_uart()
@@ -312,7 +327,7 @@ void handler_portB(void)
     IntMasterDisable();
 
     //Delay for Debounce of Sensors
-    SysCtlDelay(1000000);
+    SysCtlDelay(100000);
 
     ir_triggered = true;
 
@@ -377,6 +392,8 @@ void motor_move(void)
     }
     else;
 
+    led_update(ir_triggered, true);
+
     if (old_cycle > duty_cycle)
     {
         int i;
@@ -384,14 +401,16 @@ void motor_move(void)
         {
             while(ir_triggered)
             {
+                led_update(ir_triggered, true);
                 if (GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_4))
                 {
                     ir_triggered = false;  // sensor cleared
                 }
+                led_update(ir_triggered, true);
             }
             sub_cycle = (old_cycle - duty_cycle)/100;
             PWMPulseWidthSet(PWM1_BASE, PWM_OUT_6, (ulPeriod * (old_cycle - (sub_cycle*i))));
-            SysCtlDelay(1000000);
+            SysCtlDelay(500000);
         }
     }
     if (old_cycle < duty_cycle)
@@ -401,17 +420,63 @@ void motor_move(void)
         {
             while(ir_triggered)
             {
+                led_update(ir_triggered, true);
                 if (GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_4))
                 {
                     ir_triggered = false;  // sensor cleared
                 }
+                led_update(ir_triggered, true);
             }
             sub_cycle = (duty_cycle - old_cycle)/100;
             PWMPulseWidthSet(PWM1_BASE, PWM_OUT_6, (ulPeriod * (old_cycle + (sub_cycle*i))));
-            SysCtlDelay(1000000);
+            SysCtlDelay(500000);
         }
     }
 
-    //feed watchdog here
+    //feed watchdog
+    feed_watchdog();
 
+}
+
+void led_update(bool ir, bool motor)
+{
+    int input;
+
+    if (ir == true & motor == true)
+    {
+        input = 3;
+    }
+    else if (ir == false & motor == true)
+    {
+        input = 2;
+    }
+    else if (ir == true & motor == false)
+    {
+        input = 1;
+    }
+    else if (ir == false & motor == false)
+    {
+        input = 0;
+    }
+
+    currentState = fsm[currentState].next[input];
+
+    if(fsm[currentState].out[0] == 1)
+    {
+        GPIO_PORTB_DATA_R |= 0x01;
+    }
+    if(fsm[currentState].out[1] == 1)
+    {
+        GPIO_PORTB_DATA_R |= 0x02;
+    }
+    if(fsm[currentState].out[0] == 0)
+    {
+        GPIO_PORTB_DATA_R &= ~(0x01);
+    }
+    if(fsm[currentState].out[1] == 0)
+    {
+        GPIO_PORTB_DATA_R &= ~(0x02);
+    }
+
+    SysCtlDelay(fsm[currentState].wait);
 }
